@@ -1,0 +1,118 @@
+{
+  "rooms": [
+    {
+      "room_type": "Deluxe Room",
+      "price_inr_per_night": 5500,
+      "capacity": 2,
+      "amenities": ["Air conditioning", "Free Wi-Fi", "Smart TV", "Tea/coffee maker", "City view"]
+    },
+    {
+      "room_type": "Premium Room",
+      "price_inr_per_night": 7500,
+      "capacity": 2,
+      "amenities": ["Air conditioning", "Free Wi-Fi", "Smart TV", "Mini bar", "Bathtub", "Pool view"]
+    },
+    {
+      "room_type": "Executive Suite",
+      "price_inr_per_night": 12000,
+      "capacity": 3,
+      "amenities": ["Separate living area", "Free Wi-Fi", "Mini bar", "Work desk", "Complimentary breakfast", "Executive lounge access"]
+    },
+    {
+      "room_type": "Presidential Suite",
+      "price_inr_per_night": 25000,
+      "capacity": 4,
+      "amenities": ["Two bedrooms", "Private dining area", "Butler service", "Jacuzzi", "Complimentary airport transfer", "Executive lounge access"]
+    }
+  ],
+  "restaurants": [
+    {
+      "name": "Saffron Kitchen",
+      "cuisine": "Indian multi-cuisine",
+      "role": "Flagship restaurant and room service kitchen",
+      "hours": "24 hours (room service), 7:00 AM - 11:30 PM (dine-in)",
+      "orderable_online": true
+    },
+    {
+      "name": "Spice Route",
+      "cuisine": "Pan-Asian",
+      "role": "Specialty dinner restaurant",
+      "hours": "7:00 PM - 11:30 PM, dinner only",
+      "orderable_online": false
+    },
+    {
+      "name": "Sky Lounge",
+      "cuisine": "Rooftop bar and light bites",
+      "role": "Rooftop lounge with city views, cocktails and appetizers",
+      "hours": "5:00 PM - 1:00 AM",
+      "orderable_online": false
+    },
+    {
+      "name": "Cafe Aroma",
+      "cuisine": "Coffee, bakery, and light breakfast",
+      "role": "All-day cafe in the lobby",
+      "hours": "6:00 AM - 10:00 PM",
+      "orderable_online": false
+    }
+  ],
+  "menu": [
+    {"item": "Paneer Tikka", "category": "Starters", "price_inr": 320, "veg": true, "spice_level": "Medium", "description": "Chargrilled cottage cheese marinated in spiced yogurt"},
+    {"item": "Chicken Seekh Kebab", "category": "Starters", "price_inr": 380, "veg": false, "spice_level": "Medium", "description": "Minced chicken skewers grilled in a tandoor"},
+    {"item": "Tandoori Prawns", "category": "Starters", "price_inr": 550, "veg": false, "spice_level": "Medium", "description": "Tiger prawns marinated in tandoori spices, chargrilled"},
+    {"item": "Butter Chicken", "category": "Main Course", "price_inr": 480, "veg": false, "spice_level": "Medium", "description": "Tandoori chicken in a creamy tomato gravy"},
+    {"item": "Dal Makhani", "category": "Main Course", "price_inr": 320, "veg": true, "spice_level": "Low", "description": "Black lentils slow-cooked with butter and cream"},
+    {"item": "Paneer Butter Masala", "category": "Main Course", "price_inr": 380, "veg": true, "spice_level": "Medium", "description": "Cottage cheese cubes in a rich buttery tomato gravy"},
+    {"item": "Hyderabadi Chicken Biryani", "category": "Main Course", "price_inr": 460, "veg": false, "spice_level": "High", "description": "Layered basmati rice with spiced chicken, served with raita"},
+    {"item": "Vegetable Dum Biryani", "category": "Main Course", "price_inr": 380, "veg": true, "spice_level": "Medium", "description": "Layered basmati rice with mixed vegetables, served with raita"},
+    {"item": "Butter Naan", "category": "Breads", "price_inr": 80, "veg": true, "spice_level": "Low", "description": "Tandoor-baked flatbread brushed with butter"},
+    {"item": "Garlic Naan", "category": "Breads", "price_inr": 90, "veg": true, "spice_level": "Low", "description": "Tandoor-baked flatbread topped with garlic and coriander"},
+    {"item": "Gulab Jamun", "category": "Desserts", "price_inr": 140, "veg": true, "spice_level": "Low", "description": "Deep-fried milk dumplings soaked in sugar syrup, served warm"},
+    {"item": "Masala Chai", "category": "Beverages", "price_inr": 90, "veg": true, "spice_level": "Low", "description": "Spiced Indian tea brewed with milk"},
+    {"item": "Fresh Lime Soda", "category": "Beverages", "price_inr": 120, "veg": true, "spice_level": "Low", "description": "Sweet or salted lime soda, served chilled"}
+  ],
+  "room_service": {
+    "available": true,
+    "hours": "24 hours",
+    "menu_source": "Saffron Kitchen only",
+    "delivery_charge_inr": 0,
+    "average_delivery_time_minutes": 35
+  },
+  "spa": [
+    {"treatment": "Swedish Massage", "duration_minutes": 60, "price_inr": 3500},
+    {"treatment": "Deep Tissue Massage", "duration_minutes": 60, "price_inr": 4000},
+    {"treatment": "Aromatherapy Facial", "duration_minutes": 45, "price_inr": 3000}
+  ],
+  "facilities": {
+    "pool": "Outdoor pool, open 6:00 AM - 8:00 PM, guests only",
+    "gym": "24-hour fitness center for in-house guests",
+    "banquet_halls": "Two banquet halls, capacity 150 and 400 guests, used for weddings and conferences",
+    "business_center": "Meeting rooms and business center available on request, additional charges apply",
+    "airport_transfer": "Available on request, complimentary for Executive Suite and Presidential Suite guests, chargeable for other room categories"
+  },
+  "policies": {
+    "check_in_time": "12:00 PM",
+    "check_out_time": "10:00 AM",
+    "cancellation_policy": "Free cancellation up to 48 hours before check-in, 1 night's charge within 48 hours",
+    "pet_policy": "Pets not allowed",
+    "extra_bed_charge_inr": 800,
+    "id_proof_required": "Valid government photo ID required at check-in for all guests",
+    "minimum_check_in_age": 21
+  },
+  "staff": [
+    {"name": "Rohit Kapoor", "role": "General Manager", "experience_years": 15},
+    {"name": "Chef Devendra Solanki", "role": "Executive Chef, Saffron Kitchen", "experience_years": 18},
+    {"name": "Neha Bhargava", "role": "Spa Manager", "experience_years": 8}
+  ],
+  "location": {
+    "address": "Vijay Nagar, Indore, Madhya Pradesh",
+    "distance_from_railway_station_km": 8,
+    "distance_from_airport_km": 10,
+    "nearby_landmarks": "Close to Vijay Nagar Square and C21 Mall"
+  },
+  "parking": "Complimentary valet and self-parking for hotel guests; paid parking for restaurant-only walk-in guests",
+  "contact": {
+    "phone": "+91 731 400 7700",
+    "email": "stay@saffrongrand.example",
+    "website": "www.saffrongrand.example"
+  }
+}

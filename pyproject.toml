@@ -1,0 +1,31 @@
+[project]
+name = "saffron-grand-indore"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Parag Choudhary", email = "paragchoudhary9179@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.5.9",
+    "fastapi>=0.141.1",
+    "google-genai>=2.25.0",
+    "langchain-chroma>=1.1.0",
+    "langchain-community>=0.4.2",
+    "langchain-core>=1.6.5",
+    "langchain-google-genai>=4.4.0",
+    "langchain-openai>=1.6.6",
+    "openai>=3.19.2",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.3",
+    "sentence-transformers>=6.1.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+saffron-grand-indore = "saffron_grand_indore:main"
+
+[build-system]
+requires = ["uv_build>=0.12.8,<0.13.0"]
+build-backend = "uv_build"
