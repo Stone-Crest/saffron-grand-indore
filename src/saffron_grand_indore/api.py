@@ -5,7 +5,16 @@ from typing import List, Optional
 from .chat import answer_question
 from .config import CHATBOT_API_KEY
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Saffron Grand Concierge API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # for now; once you have a real client, restrict to their domain(s)
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ChatTurn(BaseModel):
