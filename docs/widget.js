@@ -8,11 +8,11 @@
  * It injects a floating chat bubble (bottom-right), and talks to
  * your FastAPI backend's /chat endpoint. No other dependencies.
  *
- * CONFIGURE these four values before handing this to a client:
+ * CONFIGURE these values before handing this to a client:
  */
 const SAFFRON_CONFIG = {
   API_URL: "https://saffron-grand-indore.onrender.com/chat", // your Render backend
-  API_KEY: "saffron-grand-384hgw",            // set this to your CHATBOT_API_KEY value, or leave "" if you didn't set one
+  API_KEY: "saffron-grand-384hgw",            // paste your CHATBOT_API_KEY value here, or leave "" if you didn't set one
   HOTEL_NAME: "The Saffron Grand",
   ACCENT_COLOR: "#b8863f", // a warm gold, matches a hotel brand feel — change per client
 };
@@ -42,19 +42,23 @@ const SAFFRON_CONFIG = {
 
     #sg-chat-window {
       position: fixed; bottom: 96px; right: 24px;
-      width: 360px; max-width: 92vw; height: 520px; max-height: 75vh;
+      width: 440px; max-width: 92vw; height: 680px; max-height: calc(100vh - 120px);
+      transition: width 0.2s ease, height 0.2s ease;
       background: #fff; border-radius: 16px;
       box-shadow: 0 8px 30px rgba(0,0,0,0.25);
       display: none; flex-direction: column; overflow: hidden;
       z-index: 99999; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     #sg-chat-window.open { display: flex; }
+    #sg-chat-window.expanded { width: 640px; height: calc(100vh - 120px); }
 
     #sg-chat-header {
       background: ${cfg.ACCENT_COLOR}; color: white;
       padding: 14px 16px; font-weight: 600; font-size: 15px;
       display: flex; justify-content: space-between; align-items: center;
     }
+    #sg-chat-expand { cursor: pointer; font-size: 16px; opacity: 0.85; margin-right: 14px; }
+    #sg-chat-expand:hover { opacity: 1; }
     #sg-chat-close { cursor: pointer; font-size: 18px; opacity: 0.85; }
     #sg-chat-close:hover { opacity: 1; }
 
@@ -95,7 +99,9 @@ const SAFFRON_CONFIG = {
   win.innerHTML = `
     <div id="sg-chat-header">
       <span>${cfg.HOTEL_NAME} Concierge</span>
-      <span id="sg-chat-close">✕</span>
+      <span>
+        <span id="sg-chat-expand" title="Expand">⤢</span><span id="sg-chat-close">✕</span>
+      </span>
     </div>
     <div id="sg-chat-messages"></div>
     <div id="sg-chat-inputRow">
@@ -111,6 +117,7 @@ const SAFFRON_CONFIG = {
   const inputEl = win.querySelector("#sg-chat-input");
   const sendBtn = win.querySelector("#sg-chat-send");
   const closeBtn = win.querySelector("#sg-chat-close");
+  const expandBtn = win.querySelector("#sg-chat-expand");
 
   function addMessage(role, text) {
     const div = document.createElement("div");
@@ -138,6 +145,10 @@ const SAFFRON_CONFIG = {
   closeBtn.addEventListener("click", () => {
     isOpen = false;
     win.classList.remove("open");
+  });
+  expandBtn.addEventListener("click", () => {
+    win.classList.toggle("expanded");
+    messagesEl.scrollTop = messagesEl.scrollHeight;
   });
 
   async function sendMessage() {
