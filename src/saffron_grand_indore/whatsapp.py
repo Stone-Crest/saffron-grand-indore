@@ -1,160 +1,144 @@
+"""WhatsApp Cloud API webhook for the Saffron Grand concierge.
+
+Meta calls GET /whatsapp once to verify the webhook, then POSTs every incoming
+guest message to /whatsapp. We answer with the same answer_question() brain the
+website widget uses, and send the reply back through Meta's Graph API.
 """
-WhatsApp Cloud API front door for the Hotel Concierge Bot.
-
-Usage in main.py (2 lines):
-
-    from whatsapp import create_whatsapp_router
-    app.include_router(create_whatsapp_router(answer_question))
-
-Assumes answer_question(question: str, history: list[dict]) -> str
-(sync or async). `history` is a list like [{"role": "user", "content": "..."},
-{"role": "assistant", "content": "..."}], oldest first, NOT including the
-current question. If your function has a different signature, change the
-single call inside `_get_answer` below.
-
-Render environment variables:
-    WHATSAPP_TOKEN         access token (temporary for testing, system-user token for live)
-    WHATSAPP_PHONE_ID      Phone Number ID from API Setup
-    WHATSAPP_VERIFY_TOKEN  any long random string; paste the same into Meta's webhook form
-    WHATSAPP_APP_SECRET    (recommended) App settings > Basic > App secret
-    WHATSAPP_GRAPH_VERSION (optional) defaults to v23.0
-
-Needs: pip install httpx   (add to requirements.txt)
-"""
-
 import hashlib
 import hmac
-import inspect
-import json
-import logging
 import os
-from collections import OrderedDict, defaultdict, deque
+import re
+from collections import OrderedDict
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 
-log = logging.getLogger("whatsapp")
+from .chat import answer_question
 
-HISTORY_TURNS = 8          # past messages remembered per guest (user + assistant)
-SEEN_IDS_MAX = 2000        # recent message ids kept to ignore Meta retries
-WA_MAX_CHARS = 4000        # WhatsApp text limit is 4096
+router = APIRouter()
+
+VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
+ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
+PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+APP_SECRET = os.getenv("WHATSAPP_APP_SECRET")  # optional but recommended
+API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v23.0")
+
+MAX_TURNS_KEPT = 20          # messages remembered per guest
+MAX_GUESTS_KEPT = 500        # guests remembered at once (oldest dropped first)
+MAX_SEEN_IDS = 2000          # message ids remembered, to ignore Meta retries
+WHATSAPP_TEXT_LIMIT = 4000   # WhatsApp allows 4096 characters per text message
+
+# In-memory only: this resets whenever the server restarts or sleeps.
+# For real clients, move it to a database (e.g. Supabase) keyed by phone number.
+_histories = OrderedDict()   # phone number -> [{"role": ..., "content": ...}]
+_seen_ids = OrderedDict()    # message id -> True
 
 
-def create_whatsapp_router(answer_question) -> APIRouter:
-    router = APIRouter()
+def _remember_guest(phone):
+    history = _histories.setdefault(phone, [])
+    _histories.move_to_end(phone)
+    while len(_histories) > MAX_GUESTS_KEPT:
+        _histories.popitem(last=False)
+    return history
 
-    # --- simple in-memory stores (reset on restart; swap for Supabase later) ---
-    histories: dict[str, deque] = defaultdict(lambda: deque(maxlen=HISTORY_TURNS))
-    seen_ids: "OrderedDict[str, None]" = OrderedDict()
 
-    def _env(name: str, default: str = "") -> str:
-        return os.environ.get(name, default)
+def _already_handled(message_id):
+    if message_id in _seen_ids:
+        return True
+    _seen_ids[message_id] = True
+    while len(_seen_ids) > MAX_SEEN_IDS:
+        _seen_ids.popitem(last=False)
+    return False
 
-    # ------------------------------------------------------------------ #
-    # 1) Meta's one-time webhook verification
-    # ------------------------------------------------------------------ #
-    @router.get("/whatsapp")
-    async def verify(
-        hub_mode: str = Query(None, alias="hub.mode"),
-        hub_token: str = Query(None, alias="hub.verify_token"),
-        hub_challenge: str = Query(None, alias="hub.challenge"),
-    ):
-        expected = _env("WHATSAPP_VERIFY_TOKEN")
-        if hub_mode == "subscribe" and expected and hmac.compare_digest(hub_token or "", expected):
-            return PlainTextResponse(hub_challenge or "")
-        raise HTTPException(status_code=403, detail="invalid verify token")
 
-    # ------------------------------------------------------------------ #
-    # 2) Incoming messages
-    # ------------------------------------------------------------------ #
-    @router.post("/whatsapp")
-    async def receive(request: Request, background: BackgroundTasks):
-        raw = await request.body()
+def to_whatsapp_format(text):
+    """WhatsApp bolds with *one* asterisk; the model writes **two**."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text)
+    return text[:WHATSAPP_TEXT_LIMIT]
 
-        # Optional but recommended: confirm the request really came from Meta
-        secret = _env("WHATSAPP_APP_SECRET")
-        if secret:
-            sent = request.headers.get("X-Hub-Signature-256", "")
-            good = "sha256=" + hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
-            if not hmac.compare_digest(sent, good):
-                raise HTTPException(status_code=403, detail="bad signature")
 
-        try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError:
-            return {"status": "ignored"}
+def send_text(to, body):
+    url = f"https://graph.facebook.com/{API_VERSION}/{PHONE_NUMBER_ID}/messages"
+    headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "text",
+        "text": {"body": body},
+    }
+    try:
+        resp = httpx.post(url, headers=headers, json=payload, timeout=20)
+        if resp.status_code >= 400:
+            print(f"WhatsApp send failed ({resp.status_code}): {resp.text}")
+    except httpx.HTTPError as err:
+        print(f"WhatsApp send error: {err}")
 
-        # Meta sends many event types (delivery/read receipts etc). Pull out real messages only.
-        for entry in payload.get("entry", []):
-            for change in entry.get("changes", []):
-                value = change.get("value", {})
-                for msg in value.get("messages", []) or []:
-                    msg_id = msg.get("id")
-                    if msg_id in seen_ids:          # Meta retried; already handled
-                        continue
-                    if msg_id:
-                        seen_ids[msg_id] = None
-                        while len(seen_ids) > SEEN_IDS_MAX:
-                            seen_ids.popitem(last=False)
 
-                    sender = msg.get("from")
-                    if not sender:
-                        continue
-                    if msg.get("type") == "text":
-                        text = (msg.get("text") or {}).get("body", "").strip()
-                    else:
-                        text = ""
-                    background.add_task(_handle, sender, text)
+def handle_guest_message(phone, text):
+    history = _remember_guest(phone)
+    try:
+        answer = answer_question(text, list(history))
+    except Exception as err:  # never let one bad message kill the worker
+        print(f"answer_question failed: {err}")
+        answer = (
+            "Sorry, I'm having trouble right now. "
+            "Please try again in a moment."
+        )
+    history.append({"role": "user", "content": text})
+    history.append({"role": "assistant", "content": answer})
+    del history[:-MAX_TURNS_KEPT]
+    send_text(phone, to_whatsapp_format(answer))
 
-        # Return 200 straight away so Meta doesn't retry while we think
-        return {"status": "ok"}
 
-    # ------------------------------------------------------------------ #
-    # helpers
-    # ------------------------------------------------------------------ #
-    async def _get_answer(question: str, history: list) -> str:
-        # >>> If your answer_question signature differs, edit this call <<<
-        if inspect.iscoroutinefunction(answer_question):
-            result = await answer_question(question, history)
-        else:
-            result = await run_in_threadpool(answer_question, question, history)
-        return result if isinstance(result, str) else str(result)
+def _signature_ok(raw_body, header):
+    if not APP_SECRET:
+        return True  # signature check not configured
+    if not header or not header.startswith("sha256="):
+        return False
+    expected = hmac.new(APP_SECRET.encode(), raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, header.split("=", 1)[1])
 
-    async def _handle(sender: str, text: str):
-        try:
-            if not text:
-                await _send(sender, "Sorry, I can only read text messages right now. Could you type your question?")
-                return
 
-            history = list(histories[sender])
-            reply = await _get_answer(text, history)
+@router.get("/whatsapp")
+def verify_webhook(
+    mode: str = Query(None, alias="hub.mode"),
+    token: str = Query(None, alias="hub.verify_token"),
+    challenge: str = Query(None, alias="hub.challenge"),
+):
+    if mode == "subscribe" and VERIFY_TOKEN and token == VERIFY_TOKEN:
+        return PlainTextResponse(challenge or "")
+    raise HTTPException(status_code=403, detail="Verification failed")
 
-            histories[sender].append({"role": "user", "content": text})
-            histories[sender].append({"role": "assistant", "content": reply})
-            await _send(sender, reply)
-        except Exception:
-            log.exception("failed handling WhatsApp message from %s", sender)
-            try:
-                await _send(sender, "Sorry, something went wrong on our side. Please try again in a moment.")
-            except Exception:
-                log.exception("also failed to send the error reply")
 
-    async def _send(to: str, body: str):
-        token = _env("WHATSAPP_TOKEN")
-        phone_id = _env("WHATSAPP_PHONE_ID")
-        version = _env("WHATSAPP_GRAPH_VERSION", "v23.0")
-        url = f"https://graph.facebook.com/{version}/{phone_id}/messages"
-        data = {
-            "messaging_product": "whatsapp",
-            "to": to,
-            "type": "text",
-            "text": {"body": body[:WA_MAX_CHARS]},
-        }
-        async with httpx.AsyncClient(timeout=20) as client:
-            r = await client.post(url, json=data, headers={"Authorization": f"Bearer {token}"})
-        if r.status_code >= 300:
-            log.error("WhatsApp send failed %s: %s", r.status_code, r.text)
+@router.post("/whatsapp")
+async def receive_message(request: Request, background: BackgroundTasks):
+    raw_body = await request.body()
+    if not _signature_ok(raw_body, request.headers.get("X-Hub-Signature-256")):
+        raise HTTPException(status_code=403, detail="Bad signature")
 
-    return router
+    try:
+        data = await request.json()
+    except ValueError:
+        return {"status": "ignored"}
+
+    for entry in data.get("entry", []):
+        for change in entry.get("changes", []):
+            for msg in change.get("value", {}).get("messages", []):
+                if _already_handled(msg.get("id")):
+                    continue
+                phone = msg.get("from")
+                if msg.get("type") == "text":
+                    text = msg["text"]["body"].strip()
+                    if phone and text:
+                        background.add_task(handle_guest_message, phone, text)
+                elif phone:
+                    background.add_task(
+                        send_text,
+                        phone,
+                        "Sorry, I can only read text messages for now. "
+                        "Please type your question.",
+                    )
+
+    # Meta needs a fast 200, otherwise it retries the same message.
+    return {"status": "ok"}
