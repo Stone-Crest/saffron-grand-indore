@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
 from .config import MODEL_NAME
 
-llm = ChatOpenAI(model=MODEL_NAME)
+llm = ChatOpenAI(model=MODEL_NAME, timeout=60, max_retries=1)
 
 
 def extract_text(content):

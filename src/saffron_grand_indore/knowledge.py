@@ -33,7 +33,7 @@ with open(json_path, "r", encoding="utf-8") as f:
 catalog_docs = json_to_markdown(catalog_data)
 
 all_chunks = catalog_docs + prose_chunks
-embeddings = OpenAIEmbeddings(model=EMBED_MODEL)
+embeddings = OpenAIEmbeddings(model=EMBED_MODEL, timeout=30, max_retries=1)
 
 if os.path.exists(DB_NAME):
     Chroma(persist_directory=DB_NAME, embedding_function=embeddings).delete_collection()
