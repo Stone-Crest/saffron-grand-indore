@@ -9,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Saffron Grand Concierge API")
 
+from .whatsapp import router as whatsapp_router
+app.include_router(whatsapp_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # for now; once you have a real client, restrict to their domain(s)
